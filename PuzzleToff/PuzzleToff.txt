@@ -1,0 +1,346 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Windows.Forms;
+using WMPLib;
+
+namespace Game
+{
+    public partial class myPuzzle : Form
+    {
+        // 
+        WindowsMediaPlayer WMP;
+        // Объект хранения картинки
+        Bitmap picture = null;
+        // Список объектов квадратов для хранения сегментов картинки
+        List<PictureBox> pictureList = new List<PictureBox>();
+        // Длина стороны в квадратах
+        int lengthSquare = 3;
+        int prevLength;
+        // Таймер
+        System.Diagnostics.Stopwatch timer = new System.Diagnostics.Stopwatch();
+
+        private void myPuzzle_Load(object sender, EventArgs e)
+        {
+            puzzleTimer.Text = "00:00:00";
+            WMP = new WindowsMediaPlayer();
+            WMP.URL = "C:\\Users\\HallenM\\Desktop\\НГТУ и всё связанное с ним\\ЭСКиТП\\Моя игра\\Game\\Game\\music.mp3";
+            WMP.controls.play();
+        }
+
+        public myPuzzle()
+        {
+            InitializeComponent();
+        }
+
+        void CreatePictureField()
+        {
+            int numb = lengthSquare;
+            int dim = prevLength * prevLength;
+            // Удалим предыдущий массив, чтобы создать новый
+            if (pictureList.Count != 0)
+                for (int i = dim - 1; i >= 0; i--)
+                    pictureList.Remove(pictureList[i]);
+
+            dim = numb * numb;
+            pictureList.Capacity = dim;
+
+            // Вычислим габаритные размеры квадратов мозаики
+            int w = panelPuzzle.Width / numb;
+            int h = panelPuzzle.Height / numb;
+
+            // Счётчик квадратов по координате Х в одном ряду и по координате Y в одном столбце
+            int countX = 0;
+            int countY = 0;
+            PictureBox pictBox = new PictureBox();
+            for (int i = 0; i < dim; i++)
+            {
+                // Размеры и координаты размещения созданного квадрата
+                pictBox.Width = w;
+                pictBox.Height = h;
+                pictBox.Left = 0 + countX * pictBox.Width;
+                pictBox.Top = 0 + countY * pictBox.Height;
+                // Запомним начальные координаты прямоугольника для восстановления 
+                // перемешанной картинки, определения полной сборки картинки
+                Point pt = new Point();
+                pt.X = pictBox.Left;
+                pt.Y = pictBox.Top;
+                // Сохраним координаты в свойстве Tag каждого квадрата
+                pictBox.Tag = pt;
+
+                // Считаем прямоугольники по рядам и столбцам
+                countX++;
+                if (countX == numb)
+                {
+                    countX = 0;
+                    countY++;
+                }
+
+                // Размещение квадратов в panelPuzzle
+                pictBox.Parent = panelPuzzle;
+                // Нет границ
+                pictBox.BorderStyle = BorderStyle.None;
+                // Размеры картинки будут подгоняться под размеры прямоугольника
+                pictBox.SizeMode = PictureBoxSizeMode.StretchImage;
+                // Гарантируем видимость квадрата
+                pictBox.Show();
+
+                pictureList.Add(pictBox);
+
+
+
+
+
+
+
+
+                /*
+                pictureList.Add( new PictureBox()); // непосредственное создание прямоугольника, элемента массива
+
+                // Размеры и координаты размещения созданного квадрата
+                pictureList[i].Width = w;
+                pictureList[i].Height = h;
+                pictureList[i].Left = 0 + countX * pictureList[i].Width;
+                pictureList[i].Top = 0 + countY * pictureList[i].Height;
+
+                // Запомним начальные координаты прямоугольника для восстановления 
+                // перемешанной картинки, определения полной сборки картинки
+                Point pt = new Point();
+                pt.X = pictureList[i].Left;
+                pt.Y = pictureList[i].Top;
+                // Сохраним координаты в свойстве Tag каждого квадрата
+                pictureList[i].Tag = pt;
+
+                // Считаем прямоугольники по рядам и столбцам
+                countX++;
+                if (countX == numb)
+                {
+                    countX = 0;
+                    countY++;
+                }
+
+                // Размещение квадратов в groupBoxPuzzle
+                pictureList[i].Parent = panelPuzzle;
+                // Нет границ
+                pictureList[i].BorderStyle = BorderStyle.None;
+                // Размеры картинки будут подгоняться под размеры прямоугольника
+                pictureList[i].SizeMode = PictureBoxSizeMode.StretchImage;
+                // Гарантируем видимость квадрата
+                pictureList[i].Show();
+
+            */
+
+                // Для всех квадратов массива событие клика мыши будет обрабатываться 
+                // в одной и той же функции, для удобства
+                // вычисления координат прямоугольников в одном месте
+                pictureList[i].Click += new EventHandler(Game);
+            }
+            // Раскидываем картинку на сегменты и рисуем каждый сегмент
+            DrawRect();
+        }
+
+        void DrawRect()
+        {
+            if (picture == null) return;
+
+            // Счётчик квадратов по координате Х в одном ряду и по координате Y в одном столбце
+            int countX = 0;
+            int countY = 0;
+            int numb = lengthSquare;
+            for (int i = 0; i < pictureList.Count; i++)
+            {
+                // Вычислим габаритные размеры квадратов мозаики
+                int w = panelPuzzle.Width / numb;
+                int h = panelPuzzle.Height / numb;
+                pictureList[i].Image = picture.Clone(new Rectangle(countX * w, countY * h, w, h), picture.PixelFormat);
+                // Считаем прямоугольники по рядам и столбцам
+                countX++;
+                if (countX == numb)
+                {
+                    countX = 0;
+                    countY++;
+                }
+            }
+        }
+
+        void Game(object sender, EventArgs e)
+        {
+            PictureBox pb = (PictureBox)sender;
+
+            if (puzzleTimer.Text == "00:00:00")
+                timer.Start();
+
+            for (int i = 0; i < pictureList.Count; i++)
+            {
+                // Определим пустое место на области рисования картинки
+                if (pictureList[i].Visible == false)
+                {
+                    // Проверим кликнутый квадрат, если у него совпадают координаты по X или Y
+                    // (квадраты по диагонали не рассматриваются), но при этом он на ближайшем расстоянии 
+                    // от пустого прямоугольника (отбрасываем квадраты ч/з квадрат от пустого)
+                    if (
+                        (pb.Location.X == pictureList[i].Location.X &&
+                          Math.Abs(pb.Location.Y - pictureList[i].Location.Y) == pictureList[i].Height)
+                          || (pb.Location.Y == pictureList[i].Location.Y &&
+                          Math.Abs(pb.Location.X - pictureList[i].Location.X) == pictureList[i].Width)
+                       )
+                    { // Меняем местами пустой и кликнутый квадраты
+                        Point pt = pictureList[i].Location;
+                        pictureList[i].Location = pb.Location;
+                        pb.Location = pt;
+
+                        // После каждого хода проверка на полную сборку картинки
+                        //============Проверка на выигрыш============//
+                        // Выход из функции,если хотя бы у одного квадрата не совпали
+                        // реальные и первичные координаты
+                        for (int j = 0; j < pictureList.Count; j++)
+                        {
+                            Point point = (Point)pictureList[j].Tag;
+                            if (pictureList[j].Location != point)
+                                return;
+                        }
+                        // Если у всех совпали - пазл собран
+                        for (int k = 0; k < pictureList.Count; k++)
+                        {
+                            pictureList[k].Visible = true;
+                            // Убираем обрамление квадратов
+                            pictureList[k].BorderStyle = BorderStyle.None;
+
+                            timer.Stop();
+                            MessageBox.Show("Поздравляем! Пазл был собран за " + timer.Elapsed.ToString().Remove(8));
+                            puzzleTimer.Text = "00:00:00";
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Открытие диалогового окна выбора файла
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+            // Создание диалогового окна для выбора файла
+            OpenFileDialog openDialog = new OpenFileDialog();
+            // Формат загружаемого файла
+            openDialog.Filter = "Image Files(*.bmp;*.jpg;*.jpeg;*.png)|*.bmp;*.jpg;*.jpeg;*.png|All files (*.*)|*.*";
+            // Индекс фильтра, выбранного в настоящий момент в диалоговом окне файла
+            openDialog.FilterIndex = 1;
+            // Восстанавливаем текущую папку перед закрытием
+            openDialog.RestoreDirectory = true;
+            if (openDialog.ShowDialog() == DialogResult.OK)
+            {
+                // Загружаем выбранную картинку
+                picture = new Bitmap(openDialog.FileName);
+                // Позволяет вписать картинку в маленькое поле
+                this.pictureBoxEndPicture.SizeMode = PictureBoxSizeMode.StretchImage;
+                pictureBoxEndPicture.Image = picture;
+                pictureBoxEndPicture.Invalidate();
+                
+                CreatePictureField();
+            }
+        }
+
+        // Выход из игры
+        private void buttonQuit_Click(object sender, EventArgs e)
+        {
+            FormClosingEventArgs ee = e as FormClosingEventArgs;
+            DialogResult quit = MessageBox.Show("Вы действительно хотите выйти?", "PuzzleToff", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (sender as Button != buttonQuit && quit == DialogResult.No) ee.Cancel = true;
+            if (sender as Button == buttonQuit && quit == DialogResult.Yes) Application.Exit();
+        }
+
+        // Открываем настройки приложения
+        private void toolStripButtonSetting_Click(object sender, EventArgs e)
+        {
+            Settings lengthSq = new Settings();
+            lengthSq.lengthSquare = lengthSquare;
+            if (lengthSq.ShowDialog() == DialogResult.OK)
+            {
+                prevLength = lengthSquare;
+                lengthSquare = lengthSq.lengthSquare;
+                CreatePictureField();
+            }
+        }
+
+        // Восстанавливаем картинку соответсвенно первичным координатам
+        private void toolStripButtonRestore_Click(object sender, EventArgs e)
+        {
+            for (int i = 0; i < pictureList.Count; i++)
+            {
+                Point pt = (Point)pictureList[i].Tag;
+                pictureList[i].Location = pt;
+                pictureList[i].Visible = true;
+            }
+        }
+
+        // Переешиваем картинку, хаотично меняем их координаты
+        private void buttonShuffle_Click(object sender, EventArgs e)
+        {
+            if (picture == null) return;
+
+            // Создаём объект генерирования псевослучайных чисел,
+            // для различного набора случайных чисел инициализацию
+            // объекта Random производим от счетчика количества
+            // миллисекунд прошедших со времени запуска операционной системы
+            Random rand = new Random(Environment.TickCount);
+            int r = 0;
+            for (int i = 0; i < pictureList.Count; i++)
+            {
+                pictureList[i].Visible = true;
+                r = rand.Next(0, pictureList.Count);
+                Point ptR = pictureList[r].Location;
+                Point ptI = pictureList[i].Location;
+                pictureList[i].Location = ptR;
+                pictureList[r].Location = ptI;
+                pictureList[i].BorderStyle = BorderStyle.FixedSingle;
+            }
+
+            // Случайным образом выбираем пустой прямоугольник,
+            // делаем его невидимым
+            r = rand.Next(0, pictureList.Count);
+            pictureList[r].Visible = false;
+
+            timer.Reset();
+            puzzleTimer.Text = "00:00:00";
+        }
+        
+        // Управление таймером
+        private void UpdateTimer(object sender, EventArgs e)
+        {
+            if (timer.Elapsed.ToString() != "00:00:00")
+                puzzleTimer.Text = timer.Elapsed.ToString().Remove(8);
+            // Видимость кнопки Пауза
+            if (timer.Elapsed.ToString() == "00:00:00")
+                buttonPause.Enabled = false;
+            else
+                buttonPause.Enabled = true;
+        }
+        
+        // Пауза/возобновление игры
+        private void buttonPause_Click(object sender, EventArgs e)
+        {
+            if (buttonPause.Text == "Пауза")
+            {
+                timer.Stop();
+                buttonPause.Text = "Продолжить";
+            }
+            else
+            {
+                timer.Start();
+                buttonPause.Text = "Пауза";
+            }
+        }
+
+        private void toolStripButton1_Click_1(object sender, EventArgs e)
+        {
+            Help form = new Help();
+            form.Show();
+        }
+
+        private void toolStripButton2_Click(object sender, EventArgs e)
+        {
+            About inf = new About();
+            inf.Show();
+        }
+    }
+}
